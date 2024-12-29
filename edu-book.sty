@@ -1,0 +1,347 @@
+%%
+%% Copyright 2024 Fernando Koch
+%% edu-book.sty, Latex style for Simple Textbooks.
+%%
+%% v0.1 Initial Release
+%
+% This work may be distributed and/or modified under the
+% conditions of the LaTeX Project Public License, either version 1.3
+% of this license or (at your option) any later version.
+% The latest version of this license is in
+%   https://www.latex-project.org/lppl.txt
+% and version 1.3c or later is part of all distributions of LaTeX
+% version 2008 or later.
+%
+% This work has the LPPL maintenance status `maintained'.
+% The Current Maintainer of this work is Fernando Koch.
+% This work consists of the file edu-slides.sty and associted testing files.
+%
+% Documentation and Getting Started:
+%   https://github.com/kochf1/edu-book
+%
+% Disclaimer: 
+% Multiple Generative AI models have been applied for the development of 
+% this application.
+
+\ProvidesPackage{edu-book}
+
+\RequirePackage[absolute,overlay]{textpos}
+\RequirePackage{ifthen} 
+\RequirePackage{pgffor}
+\RequirePackage{pgfkeys}
+\RequirePackage{xstring}
+\RequirePackage[none]{hyphenat}
+\RequirePackage{graphicx}
+\RequirePackage{tcolorbox}
+\RequirePackage{caption} 
+\RequirePackage{titlesec}
+\RequirePackage{setspace}
+\RequirePackage{ragged2e}
+
+%\RequirePackage{fourier}
+\RequirePackage{lmodern}
+\RequirePackage[protrusion=true,expansion=true]{microtype}
+\RequirePackage{natbib}
+
+%% == PAGE LAYOUT
+
+\RequirePackage[bindingoffset=0.625in,
+            left=.6in, right=.6in,
+            top=.8125in, bottom=.9375in,
+            paperwidth=6.375in, paperheight=9.25in]{geometry}
+
+\singlespacing
+\setlength{\parskip}{0.8em} % Adjust the space between paragraphs
+
+%% == TABLE LAYOUT
+
+\RequirePackage{pgfplotstable}
+\RequirePackage{booktabs}
+\renewcommand{\arraystretch}{1.3} % Adjust row height for better readability
+\newcolumntype{P}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+
+
+%%%
+%%% GLOBAL PARAMETERS
+%%%
+
+\pgfkeys{
+    /params/.is family,
+    /params/.cd,
+    %
+        % Book
+        book/title/.initial     = Book Title,
+        book/subtitle/.initial  =  ,
+    %
+        % Author
+        author/.initial             = Book Author, 
+        author/title/.initial       = ,
+        author/affiliation/.initial = ,
+        author/email/.initial       = ,
+    % 
+        % Text
+        text/.initial             = {.tex,.txt,}, % File extensions to try for Text
+        text/locations/.initial   = {., ./chapters}, % Folder locations to look for Text
+        text/completions/.initial   = {,}, % Additional filenames to try out
+    %
+        % Images
+        image/.initial             = {,.png, .jpg}, % File extensions to try for Image
+        image/locations/.initial   = {., ./images}, % Folder locations to look for Image
+        image/completions/.initial = {,-logo,-icon,-info}, % Additional filenames to try out
+    % 
+        % Diagrams
+        diagram/.initial           = {.tikz,.tex,}, % File extensions to try for Diagrams
+        diagram/locations/.initial = {., ./diagrams, ./images}, % Folder locations to look for Diagrams
+        diagram/completions/.initial = {, -info}, % Additional filenames to try out
+    %
+        % Tables
+        table/.initial           = {.csv,}, % File extensions to try for Tables
+        table/locations/.initial = {., ./tables}, % Folder locations to look for Tables
+        table/completions/.initial = {,}, % Additional filenames to try out
+    % 
+        % Debug
+        debug/.initial              = false % Debugging (false, true)
+}
+
+%%%
+%%% UTILITIES
+%%%
+
+%% @layout Import CSV
+%% params: parameters{1},filename{3}
+\NewDocumentCommand{\inputTable}{O{} m}{%
+    \pgfplotstabletypeset[
+        col sep=semicolon, 
+        string type, 
+        every head row/.style={%
+            before row=\toprule,
+            after row=\midrule,
+        },
+            every last row/.style={
+            after row=\bottomrule
+        }, 
+        column type=P{#1}
+    ]{#2}
+}
+
+%% @layout Import contents from a File of given Type, considering Global Params $type/extensions, $type/locations, $type/completions
+%% params: parameters{1}, type{2}, filename{3}
+\NewDocumentCommand{\ImportFile}{O{} m m}{%
+    \pgfkeys{/params/debug/.get=\debug}
+    \pgfkeysgetvalue{/params/#2}{\extensions}
+    \pgfkeysgetvalue{/params/#2/locations}{\locations}
+    \pgfkeysgetvalue{/params/#2/completions}{\completions}
+
+    \global\let\fileFound\empty 
+
+    % Iterate over the extensions and locations to find the file
+    \foreach \completion in \completions {%
+        \foreach \location in \locations {%
+            \foreach \extension in \extensions {%
+                \edef\fname{\location/#3\completion\extension}
+                \IfStrEq{\debug}{true}{Scanning: \fname \\}{} 
+                \IfFileExists{\fname}{
+                    \IfStrEq{\debug}{true}{FOUND: \fname \\}{}
+                    \xdef\fileFound{\fname}
+                }{}
+                \ifx\fileFound\empty{}\else{\breakforeach}\fi
+            }
+            \ifx\fileFound\empty{}\else{\breakforeach}\fi
+        }
+        \ifx\fileFound\empty{}\else{\breakforeach}\fi
+    }
+
+    % Handle the output based on the type (image or text)
+    \ifx\fileFound\empty
+        {File not found: #3 (as #2)}
+    \else{
+        \IfStrEq{#2}{image}
+            {\includegraphics[#1]{\fileFound}}
+            {\IfStrEq{#2}{table}
+                {\inputTable[#1]{\fileFound}}
+                {\input{\fileFound}}
+            } 
+    }\fi
+}
+
+
+%%%
+%%% BOOK ELEMENTS
+%%%
+
+%%%%
+%% @book TitlePage
+%% Presents the Title Page collecting information from Global Variables
+\newcommand{\TitlePage}[1][]{
+    \pgfkeys{/params/.cd,#1}
+
+    \begin{titlepage}
+        \begin{flushleft}
+        
+        % Title
+        \fontfamily{qcs}\fontsize{48}{48}\selectfont
+        \pgfkeysvalueof{/params/book/title}\\
+        
+        % Horizontal line
+        \vspace{0.0cm}
+        \par\noindent\rule{350pt}{4pt}\\
+        
+        % Subtitle
+        \pgfkeys{/params/book/subtitle/.get=\subtitlevalue}
+        \ifthenelse{\equal{\subtitlevalue}{}}{}{
+            \vspace{0.6cm}
+            \fontfamily{qcs}\fontsize{18}{22}\selectfont \subtitlevalue
+        }
+        
+        % Display author name if not empty
+        \fontfamily{qcs}\fontsize{13}{14}\selectfont
+        \vspace{\fill}
+        \centering
+        \pgfkeys{/params/author/.get=\authorname}
+        \ifthenelse{\equal{\authorname}{}}{}{
+            \textbf{\authorname}\\
+        }
+        
+        
+        % Display author title if not empty
+        \pgfkeys{/params/author/title/.get=\authortitle}
+        \ifthenelse{\equal{\authortitle}{}}{}{
+            \authortitle\\
+        }
+        
+        % Display author affiliation if not empty
+        \pgfkeys{/params/author/affiliation/.get=\authoraffiliation}
+        \ifthenelse{\equal{\authoraffiliation}{}}{}{
+            \authoraffiliation\\
+        }
+        
+        % Display author email if not empty
+        \pgfkeys{/params/author/email/.get=\authoremail}
+        \ifthenelse{\equal{\authoremail}{}}{}{
+            \authoremail
+        }
+
+        \end{flushleft}
+    \end{titlepage}
+}
+
+
+
+%%%%
+%% @book Chapter
+%% Create a new chapter with a header, label {$file}, and text from $file.tex
+%% Example:
+%%      \Chapter[title=Title]{ch01}
+%% params: params{1}, filename{2}
+
+% Define default keys for Chapter command
+\pgfkeys{
+    /chapter/.is family,
+    /chapter/.cd,
+    title/.initial = TITLE,
+}
+
+% Define a modern chapter style
+\titlespacing*{\chapter}{0pt}{10pt}{10pt}
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\Huge\bfseries}
+  {\filleft\Large{\MakeUppercase{\chaptername~\thechapter}}}
+  {1ex}
+  {\filleft}
+  [\vspace{1ex}\titlerule]
+
+
+\newcommand{\Chapter}[2][]{
+    % Parse key-value arguments
+    \pgfkeys{/chapter/.cd,#1}
+    \pgfkeys{/chapter/title/.get=\chaptertitle}
+
+    % Open Chapter and import file
+    \chapter{\chaptertitle}
+    \label{#2}
+    \ImportFile[]{text}{#2}
+}
+
+%%%%
+%% @book Figure
+%% Inserts a figure with caption, label {$file}, and get image from ./images/$file.png
+%% Example:
+%%      \Figure[caption=Caption]{f01_faq}
+%% params: params{1}, filename{2}
+
+\pgfkeys{
+    /myParams/.is family,
+    /myParams/.cd,
+    caption/.initial = CAPTION,
+    width/.initial = 5cm,
+}
+
+\newcommand{\Figure}[2][]{%
+    \pgfkeys{/myParams/.cd, #1}
+    \pgfkeysgetvalue{/myParams/caption}{\myCaption}
+
+    \begin{figure}[hbt]
+        \centering
+        \ImportFile[width=\textwidth]{image}{#2}
+        \caption{\myCaption}
+        \label{#2}
+    \end{figure}
+}
+
+%%%%
+%% @book Diagram
+%% Inserts a Diagram (likely TikZ) from a file followign the rules in /params/diagram
+%% Example:
+%%      \Diagram[caption=Caption]{sw-process}
+%% params: params{1}, filename{2}
+
+\newcommand{\Diagram}[2][]{
+    \pgfkeys{/myParams/.cd, #1}
+    \pgfkeysgetvalue{/myParams/caption}{\myCaption}
+    
+    \begin{figure}[hbt]
+        \centering
+        \ImportFile[]{diagram}{#2}
+        \caption{\myCaption}
+        \label{#2}
+    \end{figure}
+}
+
+%%%%
+%% @book Table
+%% Inserts a table from a file followign the rules in /params/diagram
+%% Example:
+%%      \Table[caption=Caption]{se-faq}
+%% params: params{1}, filename{2}
+
+\newcommand{\Table}[2][]{
+    \pgfkeys{/myParams/.cd, #1}
+    \pgfkeysgetvalue{/myParams/caption}{\myCaption}
+    \pgfkeysgetvalue{/myParams/width}{\myWidth}
+    
+    \begin{table}[h!]
+        \centering
+        \ImportFile[\myWidth]{table}{#2}
+        \caption{\myCaption}
+        \label{#2}
+    \end{table}
+}
+
+%%%%
+%% @book Shaded creates a shaded area with text into it
+%% Example:
+%%      \Shaded{text}
+%% params: text{1}
+\newcommand{\Shaded}[1]{
+    \begin{tcolorbox}[
+        colback=gray!10,    % Background color
+        colframe=gray!50,   % Border color
+        boxrule=0.5mm,      % Border thickness
+        width=\textwidth,   % Limit the width of the box (adjustable)
+        left=3mm,            % Add padding on the left
+        right=3mm            % Add padding on the right
+    ]
+    \ttfamily
+    #1
+    \end{tcolorbox}
+}

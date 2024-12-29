@@ -1,0 +1,21 @@
+
+
+    \begin{tikzpicture}[
+        node distance=2cm,
+        every node/.style={text width=8cm, align=center, rounded corners, minimum height=1cm, font=\normalfont, draw},
+        arrow/.style={-latex, thick}
+    ]
+    
+    % Nodes with no borders, different colors, and normal font
+    \node (specification) [] {\textbf{Software Specification} \\ Define requirements collaboratively with stakeholders.};
+    \node (development) [below of=specification] {\textbf{Software Development} \\ Design architecture and implement through programming.};
+    \node (validation) [below of=development] {\textbf{Software Validation} \\ Ensure the software meets requirements and performs rigorous testing.};
+    \node (evolution) [below of=validation] {\textbf{Software Evolution} \\ Update, optimize, or extend software to adapt to changes.};
+    
+    % Arrows
+    \draw[arrow] (specification) -- (development);
+    \draw[arrow] (development) -- (validation);
+    \draw[arrow] (validation) -- (evolution);
+    
+    \end{tikzpicture}
+    
